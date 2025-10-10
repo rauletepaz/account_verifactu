@@ -1,2 +1,74 @@
 # account_verifactu
-Spain Veri*Factu law adaptation
+Spain Veri*Factu law adaptation for odoo V11.0 comunity
+
+# Verifactu Integration
+
+Adaption to spanish verifactu:
+-
+* Mantenimiento del registro interno
+* Información Veri*Factu de los registros de facturas
+* Adaptación del flujo de facturación.
+	
+# Important New Behavoir
+
+These are the most important changes for user:
+-
+* Cancel state for an informed and acepted invoice meens anulation for all legal effect. You can't change state from cancel to draft anymore, so be carefull.
+* Open and Paid state meens invoice informed and acepted for legal effact. You won't be able anymore to modify an invoice.
+* Every invoice validation will be informed to AEAT
+* Every invoice anulation will be informed to AEAT
+* You will have a QR when the invoice was informed an acepted by AEAT
+	
+
+# FAQS
+
+How can I correct an invoice emited by error?
+-
+If the invoice was really emited by error and they wouldt'n be never emited you can simply cancel invoice.
+
+
+
+How can I correct an error on an informed and acepted invoice?
+-
+The only way you can do that is to do a rectifivative invoice that cancel the total amount of wrong invoice an create a totally new corrected invoice.
+	
+	
+	
+How can I correct an error on an informed but rejected invoice?
+-
+In this case the invoice will stay on draft state you can modify the invoice normally
+	
+	
+	
+Why can't I remove an invoice on draft state?
+-
+That happens when an invoice was informed but rejected, so you can't remove because there exist an internal register of this rejected information that you are forced to save. Fortunatelly you can totally modify this invoice.
+	
+	
+	
+I canceled an invoice but I really wanted to modify it, what can I do?
+-
+The cancel invoive are null for all legal effect so you can clone this invoice to have a new one in draft state that you can correct.
+	
+	
+	
+I validated an invoice but I can't see the QR code. What's happens?
+-
+That meens that you invoice was acepted but some error was detected. Please conctact your system administrator to solve this issue.
+
+
+
+Requirements
+============
+
+Install libraries:
+
+	sudo -H pip3 install --no-cache-dir -r requirements.txt
+
+Maintainer
+==========
+
+
+This module is maintained by the SPH.
+
+* Contact us by email <sph@sph.es>
