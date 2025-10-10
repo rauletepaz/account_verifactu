@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="res_config_settings_view_form" model="ir.ui.view">
+            <field name="name">res.config.settings.view.form.inherit.account_verifactu</field>
+            <field name="model">res.config.settings</field>
+            <field name="inherit_id" ref="account.res_config_settings_view_form"/>
+            <field name="arch" type="xml">
+            	<xpath expr="//div[@id='invoicing_settings']" position="inside">
+                            <div class="col-xs-12 col-md-6 o_setting_box">
+                                <div class="o_setting_left_pane">
+                                    <field name="verifactu_runing"/>
+                                </div>
+                                <div class="o_setting_right_pane">
+                                    <label string="Veri*Factu AEAT"/>
+                                    <div class="text-muted">
+                                        Veri*factu basic parameters.
+                                    </div>
+                                     <div class="content-group">
+                                        <field name="verifactu_runing_method" class="o_light_label mt16" widget="radio"/>
+                                    	<field name="verifactu_sif_verificable" class="o_light_label mt16" widget="radio"/>
+                                    </div>
+                                    <div class="content-group" id="AEAT_endpoint">
+	                                    <div class="text-muted">
+	                                        Veri*factu SOAP AEAT endpoint.
+	                                    </div>
+	                                    <label string="Verificable, Testing"/>
+                                        <field name="verifactu_endpoint_no_produccion_verificable" placeholder="mycompany.odoo.com"/>
+	                                    <label string="No Verificable, Testing"/>
+                                        <field name="verifactu_endpoint_no_produccion_no_verificable" placeholder="mycompany.odoo.com"/>
+	                                    <label string="Verificable, Production"/>
+                                        <field name="verifactu_endpoint_produccion_verificable" placeholder="mycompany.odoo.com"/>
+	                                    <label string="No Verificable, Production"/>
+                                        <field name="verifactu_endpoint_produccion_no_verificable" placeholder="mycompany.odoo.com"/>
+                                    </div>                                    
+                                </div>
+                            </div>
+                                    
+                </xpath>
+            </field>
+        </record>
+
+    </data>
+</odoo>

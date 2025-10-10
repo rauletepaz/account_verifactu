@@ -1,0 +1,8 @@
+# requirements-odoo11.txt
+signxml==2.7.3
+cryptography==3.2.1
+lxml==4.6.5
+pyOpenSSL==19.1.0
+cffi==1.14.6
+pycparser==2.20
+requests-pkcs12==1.9

@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ============================= -->
+    <!-- Tree View                     -->
+    <!-- ============================= -->
+    <record id="account_invoice_verifactu_tree" model="ir.ui.view">
+        <field name="name">account.invoice.verifactu.tree</field>
+        <field name="model">account.invoice.verifactu</field>
+        <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        <field name="arch" type="xml">
+            <tree string="Veri*Factu Records" create="0"
+              decoration-muted="state == 'draft' or state == 'partially_accepted'"
+              decoration-success="state == 'accepted'"
+              decoration-danger="state == 'rejected'">
+            	<field name="id"/>
+                <field name="invoice_id"/>
+                <field name="state"/>
+                <field name="type"/>
+                <field name="hash"/>
+                <field name="generation_date"/>
+                <field name="send_date"/>
+                <field name="state_icon" nolabel="1" width="30"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- ============================= -->
+    <!-- Search View                   -->
+    <!-- ============================= -->
+    <record id="account_invoice_verifactu_search" model="ir.ui.view">
+        <field name="name">account.invoice.verifactu.search</field>
+        <field name="model">account.invoice.verifactu</field>
+        <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        <field name="arch" type="xml">
+            <search string="Veri*Factu">
+                <field name="invoice_id"/>
+                <field name="hash"/>
+                <field name="state"/>
+                <field name="send_date"/>
+
+                <filter name="state_draft" string="Borrador" domain="[('state','=','draft')]"/>
+                <filter name="state_accepted" string="Aceptada" domain="[('state','=','accepted')]"/>
+                <filter name="state_partially" string="Aceptada con errores" domain="[('state','=','partially_accepted')]"/>
+                <filter name="state_rejected" string="Rechazada" domain="[('state','=','rejected')]"/>
+
+                <separator/>
+                <filter string="Last 7 days" name="last_7" domain="[('send_date','>=', (context_today()-datetime.timedelta(days=7)).strftime('%Y-%m-%d'))]"/>
+
+                <group expand="0" string="Agrupar por">
+                    <filter string="Invoce" context="{'group_by':'invoice_id'}"/>
+                    <filter string="State" context="{'group_by':'state'}"/>
+                    <filter string="Sending date" context="{'group_by':'send_date'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- ============================= -->
+    <!-- Form View                     -->
+    <!-- ============================= -->
+    <record id="account_invoice_verifactu_form" model="ir.ui.view">
+        <field name="name">account.invoice.verifactu.form</field>
+        <field name="model">account.invoice.verifactu</field>
+        <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        <field name="arch" type="xml">
+            <form string="Veri*Factu" create="false" edit="false" delete="false">
+                <header>
+					<button name="update" type="object" string="Update Values"
+							attrs="{'invisible':[('state','!=','draft'),('invoice_id','=',False)]}"/>
+					<button name="generate_register" type="object" string="Generate register"
+							attrs="{'invisible':[('state','!=','draft'),('invoice_id','=',False)]}"/>
+					<button name="generate_soap_envelope" type="object" string="Generate SOAP"
+							attrs="{'invisible':[('state','!=','draft'),('invoice_id','=',False)]}"/>
+					<button name="generate_qr" type="object" string="Generate QR"
+							attrs="{'invisible':[('state','in',['accepted','partially_accepted']),('invoice_id','=',False)]}"/>
+					<button name="generate_hash" type="object" string="Calculate Hash"
+							attrs="{'invisible':[('state','!=','draft'),('invoice_id','=',False)]}"/>
+					<button name="send_soap_request" type="object" string="send to AEAT"
+							attrs="{'invisible':[('state','!=','draft'),('invoice_id','=',False)]}"						
+							class="oe_highlight" />
+					<field name="state" widget="statusbar" statusbar_visible="draft,accepted,partially_accepted,rejected"/>                
+				</header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button type="object" name="open_invoice" class="oe_stat_button" icon="fa-external-link" attrs="{'invisible':[('invoice_id','=',False)]}">
+                            <field name="invoice_id" widget="statinfo" string="Factura"/>
+                        </button>
+                    </div>
+
+                    <group>
+                        <group>
+                            <field name="invoice_id" options="{'no_create': True}"/>
+                            <field name="hash"/>
+                            <field name="anterior"/>
+                            <field name="generation_date"/>
+                            <field name="send_date"/>
+                            <field name="type"/>
+                            <field name="sin_registro_previo" attrs="{'invisible':[('type','in',['alta','event'])]}"/>
+                            <field name="rechazo_previo" attrs="{'invisible':[('type','in',['event'])]}"/>
+                            <field name="subsanacion" attrs="{'invisible':[('type','in',['alta','event'])]}"/>
+                        </group>
+                        <group>
+							<field name="verifactu_qr" widget="image" class="oe_avatar oe_inline" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <page string="Register">
+                            <!-- Texto XML: usar editor ACE en modo XML -->
+                            <field name="registro_factura" widget="ace" options="{'mode': 'xml', 'useSoftTabs': True}" nolabel="1" readonly="1"/>
+                        </page>
+                        <page string="Request (SOAP)">
+                            <field name="request" widget="ace" options="{'mode': 'xml'}" nolabel="1" readonly="1"/>
+                        </page>
+                        <page string="Response (SOAP)">
+                            <field name="response_mode" invisible="1"/>
+							<field name="response" widget="ace" options="{'mode': 'xml', 'wrap': true, 'minLines': 15, 'maxLines': 60}" nolabel="1" readonly="1" attrs="{'invisible': [('response_mode','!=','xml')]}"/>
+							<!-- <field name="response" widget="ace" options="{'mode': 'html', 'wrap': true, 'minLines': 15, 'maxLines': 60}" nolabel="1" readonly="1" attrs="{'invisible': [('response_mode','!=','html')]}"/> -->
+							<field name="response_html" nolabel="1" readonly="1" attrs="{'invisible': [('response_mode','!=','html')]}"/>
+  							<field name="response" widget="ace" options="{'mode': 'json', 'wrap': true, 'minLines': 15, 'maxLines': 60}" nolabel="1" readonly="1" attrs="{'invisible': [('response_mode','!=','json')]}"/>
+							<field name="response" widget="ace" options="{'mode': 'text', 'wrap': true, 'minLines': 15, 'maxLines': 60}" nolabel="1" readonly="1" attrs="{'invisible': [('response_mode','!=','text')]}"/>
+                            
+                        </page>
+                        <page string="Signature">
+                            <field name="signature" widget="ace" options="{'mode': 'xml'}" nolabel="1" readonly="1"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- ============================= -->
+    <!-- Action                        -->
+    <!-- ============================= -->
+    <record id="action_account_invoice_verifactu" model="ir.actions.act_window">
+        <field name="name">Veri*Factu</field>
+        <field name="res_model">account.invoice.verifactu</field>
+        <field name="view_mode">tree,form</field>
+        <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        <field name="search_view_id" ref="account_invoice_verifactu_search"/>
+        <field name="context">{}</field>
+        <field name="help" type="html">
+            <p class="oe_view_nocontent_create">No hay registros Veri*Factu aún.</p>
+        </field>
+    </record>
+    
+    <record id="action_send_verifactu_bulk" model="ir.actions.server">
+        <field name="name">Send history Veri*Factu</field>
+        <field name="model_id" ref="model_account_invoice_verifactu"/>
+        <field name="binding_model_id" ref="model_account_invoice_verifactu"/>
+        <field name="state">code</field>
+        <field name="code">records.action_send_bulk()</field>
+    </record>
+    
+
+    <!-- ============================= -->
+    <!-- Menuitem (Invoicing -> Sales) -->
+    <!-- ============================= -->
+    <menuitem id="menu_account_invoice_verifactu_root"
+              name="Veri*Factu"
+              parent="account.menu_finance_receivables_documents"
+              action="action_account_invoice_verifactu"
+              sequence="90" groups="base.group_system"/>
+              
+</odoo>

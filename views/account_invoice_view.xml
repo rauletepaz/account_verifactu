@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+        <!-- QR -->
+        <record id="account_invoice_verifactu_inherit_form" model="ir.ui.view">
+            <field name="name">account.invoice.verifactu.inherit.form</field>
+            <field name="model">account.invoice</field>
+            <field name="inherit_id" ref="account.invoice_form"/>
+            <field name="arch" type="xml">
+    			<xpath expr="//sheet/h1[1]/div[1]" position="before">
+    					<field name="verifactu_id" invisible="1"/>
+    					<field name="verifactu_state" invisible="1"/>
+    			        <div attrs="{'invisible': [('sequence_number_next_prefix','!=',False)]}">
+    			            <!--  
+                            <field name="verifactu_qr" readonly="1" widget='image' class="oe_avatar oe_inline" attrs="{'invisible': ['|',('verifactu_id','=',False),('verifactu_state','in',(False,'draft','rejected'))]}"/>
+                            -->
+                            <field name="verifactu_qr" readonly="1" widget="image" class="oe_avatar oe_inline" />
+                        </div>
+    			</xpath>
+    			<xpath expr="//field[@name='tax_line_ids']//field[@name='tax_id']" position="after">
+                	<field name="verifactu_active" invisible="1"/>
+                	<field name="impuesto" attrs="{'invisible':[('verifactu_active','=', False)]}"/>
+                	<field name="regimen" attrs="{'invisible':[('verifactu_active','=', False)]}"/>
+                	<field name="calificacion" attrs="{'invisible':[('verifactu_active','=', False)]}"/>
+                	<field name="exento" attrs="{'invisible':[('verifactu_active','=', False)]}"/>
+                </xpath>
+            </field>
+        </record>
+        
+        <record id="view_invoice_tax_verifactu_inherit_tree" model="ir.ui.view">
+            <field name="name">account.invoice.tax.verifactu.inherit.tree</field>
+            <field name="model">account.invoice.tax</field>
+            <field name="inherit_id" ref="account.view_invoice_tax_tree"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='name']" position="after">
+                	<field name="verifactu_active" invisible="1"/>
+                	<field name="impuesto" attrs="{'invisible':[('verifactu_active','=', False)]}"/>
+                	<field name="regimen" attrs="{'invisible':[('verifactu_active','=', False)]}"/>
+                	<field name="calificacion" attrs="{'invisible':[('verifactu_active','=', False)]}"/>
+                	<field name="exento" attrs="{'invisible':[('verifactu_active','=', False)]}"/>
+                </xpath>
+            </field>
+        </record>
+
+        <record id="view_invoice_tax_verifactu_inherit_form" model="ir.ui.view">
+            <field name="name">account.invoice.tax.verifactu.inherit.form</field>
+            <field name="model">account.invoice.tax</field>
+            <field name="inherit_id" ref="account.view_invoice_tax_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='name']" position="after">
+                	<field name="verifactu_active" invisible="1"/>
+                	<field name="impuesto" attrs="{'invisible':[('verifactu_active','=', False)]}"/>
+                	<field name="regimen" attrs="{'invisible':[('verifactu_active','=', False)]}"/>
+                	<field name="calificacion" attrs="{'invisible':[('verifactu_active','=', False)]}"/>
+                	<field name="exento" attrs="{'invisible':[('verifactu_active','=', False)]}"/>
+                </xpath>
+            </field>
+        </record>
+        
+</odoo>

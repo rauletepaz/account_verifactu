@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <data noupdate="1">
+  
+	<!--  
+	AEAT_ENDPOINTS
+	    ("pruebas",  verificable):  "https://prewww1.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP",
+	    ("pruebas",  no verificable): "https://prewww1.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/RequerimientoSOAP",
+	    ("produccion", verificable):  "https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP",
+	    ("produccion", no verificable): "https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/RequerimientoSOAP",
+	    
+	https://prewww1.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/ValRegistroNoVerifactu
+	-->
+  
+    <record id="param_verifactu_runing" model="ir.config_parameter">
+      <field name="key">account_verifactu.verifactu_runing</field>
+      <field name="value">1</field>
+    </record>
+    <record id="param_verifactu_runing_method" model="ir.config_parameter">
+      <field name="key">account_verifactu.verifactu_runing_method</field>
+      <field name="value">no_production</field>
+    </record>
+    <record id="param_verifactu_sif_verificable" model="ir.config_parameter">
+      <field name="key">account_verifactu.verifactu_sif_verificable</field>
+      <field name="value">no_verificable</field>
+    </record>
+    
+    <record id="param_verifactu_endpoint_produccion_verificable" model="ir.config_parameter">
+      <field name="key">account_verifactu.verifactu_endpoint_produccion_verificable</field>
+      <field name="value">https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP</field>
+    </record>
+    <record id="param_verifactu_endpoint_no_produccion_verificable" model="ir.config_parameter">
+      <field name="key">account_verifactu.verifactu_endpoint_no_produccion_verificable</field>
+      <field name="value">https://prewww1.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP</field>
+    </record>
+    
+    <record id="param_verifactu_endpoint_produccion_no_verificable" model="ir.config_parameter">
+      <field name="key">account_verifactu.verifactu_endpoint_produccion_no_verificable</field>
+      <field name="value">https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/RequerimientoSOAP</field>
+    </record>
+    <record id="param_verifactu_endpoint_no_produccion_no_verificable" model="ir.config_parameter">
+      <field name="key">account_verifactu.verifactu_endpoint_no_produccion_no_verificable</field>
+      <field name="value">https://prewww1.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/RequerimientoSOAP</field>
+    </record>
+  </data>
+</odoo>

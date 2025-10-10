@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+
+    <template id="soap_request">
+        <!-- Display table headers for lines -->
+        <t t-name="account_verifactu.soap_request">
+<soapenv:Envelope 
+xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+xmlns:sum="https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd"
+xmlns:sum1="https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd" 
+xmlns:ds="http://www.w3.org/2000/09/xmldsig#">	
+	<soapenv:Header/>
+		<soapenv:Body>
+			<sum:RegFactuSistemaFacturacion>
+				<sum:Cabecera>
+					<sum1:ObligadoEmision>
+						<sum1:NombreRazon><t t-esc="o.invoice_id.company_id.verifactu_razon_social"/></sum1:NombreRazon>
+						<sum1:NIF><t t-esc="o.invoice_id.company_id.vat_clean()[1]"/></sum1:NIF>
+					</sum1:ObligadoEmision>
+				</sum:Cabecera>
+				<sum:RegistroFactura>
+				<t t-raw="o.registro_factura"/>
+				</sum:RegistroFactura>
+		</sum:RegFactuSistemaFacturacion>
+	</soapenv:Body>
+</soapenv:Envelope>	    
+        </t>
+    </template>
+
+
+    <template id="RegistroAlta" >
+    	<t t-name="account_verifactu.RegistroAlta">
+            	<!-- On qweb templates it is mandatory to declare any nameespace -->
+            		<t t-set="datetime" t-value="datetime"/>
+					<sum1:RegistroAlta xmlns:sum1="https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd" >
+						<sum1:IDVersion>1.0</sum1:IDVersion>
+						<sum1:IDFactura>
+							<sum1:IDEmisorFactura><t t-esc="o.invoice_id.company_id.partner_id.vat_clean()[1]"/></sum1:IDEmisorFactura>
+							<sum1:NumSerieFactura><t t-esc="o.invoice_id.number"/></sum1:NumSerieFactura>
+							<sum1:FechaExpedicionFactura><t t-esc="o.date_invoice"/></sum1:FechaExpedicionFactura>
+						</sum1:IDFactura>
+						<sum1:NombreRazonEmisor><t t-esc="o.invoice_id.company_id.verifactu_razon_social"/></sum1:NombreRazonEmisor>
+						<sum1:Subsanacion><t t-esc="o.subsanacion"/></sum1:Subsanacion>
+						<sum1:RechazoPrevio><t t-esc="o.rechazo_previo"/></sum1:RechazoPrevio>
+						<sum1:TipoFactura><t t-esc="o.invoice_id.verifactu_invoice_type"/></sum1:TipoFactura>
+						<sum1:DescripcionOperacion><t t-esc="o.invoice_id.company_id.verifactu_operation"/></sum1:DescripcionOperacion>
+						<sum1:Destinatarios>
+							<sum1:IDDestinatario>
+								<sum1:NombreRazon><t t-esc="o.invoice_id.partner_id.name"/></sum1:NombreRazon>
+								<sum1:NIF><t t-esc="o.invoice_id.partner_id.vat_clean()[1]"/></sum1:NIF>
+							</sum1:IDDestinatario>
+						</sum1:Destinatarios>
+						<sum1:Desglose>
+					    <t t-foreach="o.invoice_id.tax_line_ids" t-as="tax_line">
+							<sum1:DetalleDesglose>
+								<sum1:Impuesto><t t-esc="tax_line.tax_id.verifactu_impuesto"/></sum1:Impuesto>
+								<sum1:ClaveRegimen><t t-esc="tax_line.tax_id.verifactu_regimen"/></sum1:ClaveRegimen>
+								<t t-if="(round(tax_line.amount_total, 2) == 0.00) and (round(tax_line.base*tax_line.tax_id.amount/100,2) != 0.00) or (round(tax_line.tax_id.amount/100,2) == 0.00)">
+									<sum1:OperacionExenta><t t-esc="tax_line.tax_id.verifactu_exento"/></sum1:OperacionExenta>
+								</t>
+								<t t-else="">
+									<sum1:CalificacionOperacion><t t-esc="tax_line.tax_id.verifactu_calificacion"/></sum1:CalificacionOperacion>
+								</t>
+								<sum1:TipoImpositivo><t t-esc="'{:.2f}'.format(tax_line.tax_id.amount or 0.00)"/></sum1:TipoImpositivo>
+								<sum1:BaseImponibleOimporteNoSujeto><t t-esc="tax_line.base"/></sum1:BaseImponibleOimporteNoSujeto>
+								<sum1:CuotaRepercutida><t t-esc="'{:.2f}'.format(tax_line.amount_total or 0.00)"/></sum1:CuotaRepercutida>
+							</sum1:DetalleDesglose>
+					   	</t>
+						</sum1:Desglose>
+						<sum1:CuotaTotal><t t-esc="'{:.2f}'.format(o.invoice_id.amount_tax or 0.00)"/></sum1:CuotaTotal>
+						<sum1:ImporteTotal><t t-esc="'{:.2f}'.format(o.invoice_id.amount_total or 0.00)"/></sum1:ImporteTotal>
+						<sum1:Encadenamiento>
+							<t t-if="o.anterior">
+							<sum1:RegistroAnterior>
+								<sum1:IDEmisorFactura><t t-esc="o.anterior.invoice_id.partner_id.vat_clean()[1]"/></sum1:IDEmisorFactura>
+								<sum1:NumSerieFactura><t t-esc="o.anterior.invoice_id.number"/></sum1:NumSerieFactura>
+								<sum1:FechaExpedicionFactura><t t-esc="o.anterior.date_invoice"/></sum1:FechaExpedicionFactura>
+								<sum1:Huella><t t-esc="o.anterior.hash"/></sum1:Huella>
+							</sum1:RegistroAnterior>
+							</t>
+							<t t-else=""><sum1:PrimerRegistro>S</sum1:PrimerRegistro></t>
+						</sum1:Encadenamiento>
+						<sum1:SistemaInformatico>
+							<sum1:NombreRazon><t t-esc="o.invoice_id.company_id.verifactu_razon_social"/></sum1:NombreRazon>
+							<sum1:NIF><t t-esc="o.invoice_id.company_id.vat_clean()[1]"/></sum1:NIF>
+							<sum1:NombreSistemaInformatico>Odoo</sum1:NombreSistemaInformatico>
+							<sum1:IdSistemaInformatico>OD</sum1:IdSistemaInformatico>
+							<sum1:Version>11.0.0</sum1:Version>
+							<sum1:NumeroInstalacion><t t-esc="o.invoice_id.company_id.id"/></sum1:NumeroInstalacion>
+							<sum1:TipoUsoPosibleSoloVerifactu>N</sum1:TipoUsoPosibleSoloVerifactu>
+							<sum1:TipoUsoPosibleMultiOT>N</sum1:TipoUsoPosibleMultiOT>
+							<sum1:IndicadorMultiplesOT>N</sum1:IndicadorMultiplesOT>
+						</sum1:SistemaInformatico>
+						<sum1:FechaHoraHusoGenRegistro><t t-raw="o.generation_date"/></sum1:FechaHoraHusoGenRegistro>
+						<sum1:TipoHuella>01</sum1:TipoHuella>
+						<sum1:Huella><t t-raw="o.hash"/></sum1:Huella>
+					    <t t-if="o.signature"><t t-raw="o.signature"/></t>
+					</sum1:RegistroAlta>
+	    </t>
+    </template>
+
+    <template id="RegistroAnulacion" >
+        <t t-name="account_verifactu.RegistroAnulacion">
+            	<!-- On qweb templates it is mandatory to declare any nameespace -->
+				<sum1:RegistroAnulacion xmlns:sum1="https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd">
+					<sum1:IDVersion>1.0</sum1:IDVersion>
+					<sum1:IDFactura>
+						<sum1:IDEmisorFacturaAnulada><t t-esc="o.invoice_id.company_id.partner_id.vat_clean()[1]"/></sum1:IDEmisorFacturaAnulada>
+						<sum1:NumSerieFacturaAnulada><t t-esc="o.invoice_id.number"/></sum1:NumSerieFacturaAnulada>
+						<sum1:FechaExpedicionFacturaAnulada><t t-esc="o.date_invoice"/></sum1:FechaExpedicionFacturaAnulada>
+					</sum1:IDFactura>
+					<sum1:SinRegistroPrevio><t t-esc="o.sin_registro_previo"/></sum1:SinRegistroPrevio>
+					<sum1:RechazoPrevio><t t-esc="o.rechazo_previo"/></sum1:RechazoPrevio>
+					<sum1:Encadenamiento>
+						<t t-if="o.anterior">
+							<sum1:RegistroAnterior>
+								<sum1:IDEmisorFactura><t t-esc="o.anterior.invoice_id.partner_id.vat_clean()[1]"/></sum1:IDEmisorFactura>
+								<sum1:NumSerieFactura><t t-esc="o.anterior.invoice_id.number"/></sum1:NumSerieFactura>
+								<sum1:FechaExpedicionFactura><t t-esc="o.anterior.date_invoice"/></sum1:FechaExpedicionFactura>
+								<sum1:Huella><t t-esc="o.anterior.hash"/></sum1:Huella>
+							</sum1:RegistroAnterior>
+							</t>
+						<t t-else=""><sum1:PrimerRegistro>S</sum1:PrimerRegistro></t>
+					</sum1:Encadenamiento>
+					<sum1:SistemaInformatico>
+						<sum1:NombreRazon><t t-esc="o.invoice_id.company_id.verifactu_razon_social"/></sum1:NombreRazon>
+						<sum1:NIF><t t-esc="o.invoice_id.company_id.vat_clean()[1]"/></sum1:NIF>
+						<sum1:NombreSistemaInformatico>Odoo</sum1:NombreSistemaInformatico>
+						<sum1:IdSistemaInformatico>OD</sum1:IdSistemaInformatico>
+						<sum1:Version>11.0.0</sum1:Version>
+						<sum1:NumeroInstalacion><t t-esc="o.invoice_id.company_id.id"/></sum1:NumeroInstalacion>
+						<sum1:TipoUsoPosibleSoloVerifactu>N</sum1:TipoUsoPosibleSoloVerifactu>
+						<sum1:TipoUsoPosibleMultiOT>N</sum1:TipoUsoPosibleMultiOT>
+						<sum1:IndicadorMultiplesOT>N</sum1:IndicadorMultiplesOT>
+					</sum1:SistemaInformatico>
+					<sum1:FechaHoraHusoGenRegistro>o.generation_date"/></sum1:FechaHoraHusoGenRegistro>
+					<sum1:TipoHuella>01</sum1:TipoHuella>
+					<sum1:Huella><t t-raw="o.hash"/></sum1:Huella>
+				    <t t-if="o.signature"><t t-raw="o.signature"/></t>
+				</sum1:RegistroAnulacion>
+        </t>
+    </template>
+    
+    <template id="RegistroEvento" >
+        <t t-name="account_verifactu.RegistroEvento">
+    	<!-- On qweb templates it is mandatory to declare any nameespace -->
+				<sum1:RegistroEvento xmlns:sum1="https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd">
+					<sum1:IDVersion>1.0</sum1:IDVersion>
+					<sum1:Evento>
+						<sum1:SistemaInformatico>
+							<sum1:NombreRazon><t t-esc="o.invoice_id.company_id.verifactu_razon_social"/></sum1:NombreRazon>
+							<sum1:NIF><t t-esc="o.invoice_id.company_id.vat_clean()[1]"/></sum1:NIF>
+							<sum1:NombreSistemaInformatico>Odoo</sum1:NombreSistemaInformatico>
+							<sum1:IdSistemaInformatico>OD</sum1:IdSistemaInformatico>
+							<sum1:Version>11.0.0</sum1:Version>
+							<sum1:NumeroInstalacion><t t-esc="o.invoice_id.company_id.id"/></sum1:NumeroInstalacion>
+							<sum1:TipoUsoPosibleSoloVerifactu>N</sum1:TipoUsoPosibleSoloVerifactu>
+							<sum1:TipoUsoPosibleMultiOT>N</sum1:TipoUsoPosibleMultiOT>
+							<sum1:IndicadorMultiplesOT>N</sum1:IndicadorMultiplesOT>
+						</sum1:SistemaInformatico>
+						<sum1:ObligadoEmision>
+							<sum1:NombreRazon><t t-esc="o.invoice_id.company_id.verifactu_razon_social"/></sum1:NombreRazon>
+							<sum1:NIF><t t-esc="o.invoice_id.company_id.vat_clean()[1]"/></sum1:NIF>
+						</sum1:ObligadoEmision>	
+						<sum1:FechaHoraHusoGenEvento></sum1:FechaHoraHusoGenEvento>		
+						<sum1:TipoEvento></sum1:TipoEvento>	
+						<sum1:DatosPropiosEvento>
+							<sum1:LanzamientoProcesoDeteccionAnomaliasRegFacturacion>
+								<sum1:RealizadoProcesoSobreIntegridadHuellasRegFacturacion></sum1:RealizadoProcesoSobreIntegridadHuellasRegFacturacion>
+								<sum1:NumeroDeRegistrosFacturacionProcesadosSobreIntegridadHuellas></sum1:NumeroDeRegistrosFacturacionProcesadosSobreIntegridadHuellas>
+								<sum1:RealizadoProcesoSobreIntegridadFirmasRegFacturacion></sum1:RealizadoProcesoSobreIntegridadFirmasRegFacturacion>
+								<sum1:NumeroDeRegistrosFacturacionProcesadosSobreIntegridadFirmas></sum1:NumeroDeRegistrosFacturacionProcesadosSobreIntegridadFirmas>
+								<sum1:RealizadoProcesoSobreTrazabilidadCadenaRegFacturacion></sum1:RealizadoProcesoSobreTrazabilidadCadenaRegFacturacion>
+								<sum1:NumeroDeRegistrosFacturacionProcesadosSobreTrazabilidadCadena></sum1:NumeroDeRegistrosFacturacionProcesadosSobreTrazabilidadCadena>
+								<sum1:RealizadoProcesoSobreTrazabilidadFechasRegFacturacion></sum1:RealizadoProcesoSobreTrazabilidadFechasRegFacturacion>
+								<sum1:NumeroDeRegistrosFacturacionProcesadosSobreTrazabilidadFechas></sum1:NumeroDeRegistrosFacturacionProcesadosSobreTrazabilidadFechas>
+							</sum1:LanzamientoProcesoDeteccionAnomaliasRegFacturacion>
+							<sum1:DeteccionAnomaliasRegFacturacion>
+								<sum1:TipoAnomalia></sum1:TipoAnomalia>
+								<sum1:OtrosDatosAnomalia></sum1:OtrosDatosAnomalia>
+								<sum1:RegistroFacturacionAnomalo>
+									<sum1:IDEmisorFactura></sum1:IDEmisorFactura>
+									<sum1:NumSerieFactura></sum1:NumSerieFactura>
+									<sum1:FechaExpedicionFactura></sum1:FechaExpedicionFactura>
+								</sum1:RegistroFacturacionAnomalo>
+							</sum1:DeteccionAnomaliasRegFacturacion>	
+							<sum1:LanzamientoProcesoDeteccionAnomaliasRegEvento>
+								<sum1:RealizadoProcesoSobreIntegridadHuellasRegEvento></sum1:RealizadoProcesoSobreIntegridadHuellasRegEvento>
+								<sum1:NumeroDeRegistrosEventoProcesadosSobreIntegridadHuellas></sum1:NumeroDeRegistrosEventoProcesadosSobreIntegridadHuellas>
+								<sum1:RealizadoProcesoSobreIntegridadFirmasRegEvento></sum1:RealizadoProcesoSobreIntegridadFirmasRegEvento>
+								<sum1:NumeroDeRegistrosEventoProcesadosSobreIntegridadFirmas></sum1:NumeroDeRegistrosEventoProcesadosSobreIntegridadFirmas>
+								<sum1:RealizadoProcesoSobreTrazabilidadCadenaRegEvento></sum1:RealizadoProcesoSobreTrazabilidadCadenaRegEvento>
+								<sum1:NumeroDeRegistrosEventoProcesadosSobreTrazabilidadCadena></sum1:NumeroDeRegistrosEventoProcesadosSobreTrazabilidadCadena>
+								<sum1:RealizadoProcesoSobreTrazabilidadFechasRegEvento></sum1:RealizadoProcesoSobreTrazabilidadFechasRegEvento>
+								<sum1:NumeroDeRegistrosEventoProcesadosSobreTrazabilidadFechas></sum1:NumeroDeRegistrosEventoProcesadosSobreTrazabilidadFechas>
+							</sum1:LanzamientoProcesoDeteccionAnomaliasRegEvento>	
+							<sum1:DeteccionAnomaliasRegEvento>
+								<sum1:TipoAnomalia></sum1:TipoAnomalia>
+								<sum1:OtrosDatosAnomalia></sum1:OtrosDatosAnomalia>
+								<sum1:RegEventoAnomalo>
+									<sum1:TipoEvento></sum1:TipoEvento>
+									<sum1:FechaHoraHusoEvento></sum1:FechaHoraHusoEvento>
+									<sum1:HuellaEvento></sum1:HuellaEvento>
+								</sum1:RegEventoAnomalo>
+							</sum1:DeteccionAnomaliasRegEvento>
+							<sum1:ExportacionRegFacturacionPeriodo>
+								<sum1:FechaHoraHusoInicioPeriodoExport></sum1:FechaHoraHusoInicioPeriodoExport>
+								<sum1:FechaHoraHusoFinPeriodoExport></sum1:FechaHoraHusoFinPeriodoExport>
+								<sum1:RegistroFacturacionInicialPeriodo>
+									<sum1:IDEmisorFactura></sum1:IDEmisorFactura>
+									<sum1:NumSerieFactura></sum1:NumSerieFactura>
+									<sum1:FechaExpedicionFactura></sum1:FechaExpedicionFactura>
+									<sum1:Huella></sum1:Huella>
+								</sum1:RegistroFacturacionInicialPeriodo>
+								<sum1:RegistroFacturacionFinalPeriodo>
+									<sum1:IDEmisorFactura></sum1:IDEmisorFactura>
+									<sum1:NumSerieFactura></sum1:NumSerieFactura>
+									<sum1:FechaExpedicionFactura></sum1:FechaExpedicionFactura>
+									<sum1:Huella></sum1:Huella>
+								</sum1:RegistroFacturacionFinalPeriodo>
+								<sum1:ExportacionRegEventoPeriodo>
+									<sum1:FechaHoraHusoInicioPeriodoExport></sum1:FechaHoraHusoInicioPeriodoExport>
+									<sum1:FechaHoraHusoFinPeriodoExport></sum1:FechaHoraHusoFinPeriodoExport>	
+									<sum1:RegistroEventoInicialPeriodo>
+										<sum1:TipoEvento></sum1:TipoEvento>
+										<sum1:FechaHoraHusoEvento></sum1:FechaHoraHusoEvento>
+										<sum1:HuellaEvento></sum1:HuellaEvento>
+									</sum1:RegistroEventoInicialPeriodo>
+									<sum1:RegistroEventoFinalPeriodo>
+										<sum1:TipoEvento></sum1:TipoEvento>
+										<sum1:FechaHoraHusoEvento></sum1:FechaHoraHusoEvento>
+										<sum1:HuellaEvento></sum1:HuellaEvento>
+									</sum1:RegistroEventoFinalPeriodo>
+									<sum1:NumeroDeRegEventoExportados></sum1:NumeroDeRegEventoExportados>	
+									<sum1:RegEventoExportadosDejanDeConservarse></sum1:RegEventoExportadosDejanDeConservarse>
+								</sum1:ExportacionRegEventoPeriodo>	
+								<sum1:ResumenEventos>
+									<sum1:TipoEvento>
+										<sum1:TipoEvento></sum1:TipoEvento>
+										<sum1:NumeroDeEventos></sum1:NumeroDeEventos>
+									</sum1:TipoEvento>
+									<sum1:RegistroFacturacionInicialPeriodo>
+										<sum1:IDEmisorFactura></sum1:IDEmisorFactura>
+										<sum1:NumSerieFactura></sum1:NumSerieFactura>
+										<sum1:FechaExpedicionFactura></sum1:FechaExpedicionFactura>
+										<sum1:Huella></sum1:Huella>
+									</sum1:RegistroFacturacionInicialPeriodo>
+									<sum1:RegistroFacturacionFinalPeriodo>
+										<sum1:IDEmisorFactura></sum1:IDEmisorFactura>
+										<sum1:NumSerieFactura></sum1:NumSerieFactura>
+										<sum1:FechaExpedicionFactura></sum1:FechaExpedicionFactura>
+										<sum1:Huella></sum1:Huella>
+									</sum1:RegistroFacturacionFinalPeriodo>	
+									<sum1:NumeroDeRegistrosFacturacionAltaGenerados></sum1:NumeroDeRegistrosFacturacionAltaGenerados>	
+									<sum1:SumaCuotaTotalAlta></sum1:SumaCuotaTotalAlta>	
+									<sum1:SumaImporteTotalAlta></sum1:SumaImporteTotalAlta>	
+									<sum1:NumeroDeRegistrosFacturacionAnulacionGenerados></sum1:NumeroDeRegistrosFacturacionAnulacionGenerados>
+								</sum1:ResumenEventos>
+
+								<sum1:NumeroDeRegistrosFacturacionAltaExportados></sum1:NumeroDeRegistrosFacturacionAltaExportados>
+								<sum1:SumaCuotaTotalAlta></sum1:SumaCuotaTotalAlta>
+								<sum1:SumaImporteTotalAlta></sum1:SumaImporteTotalAlta>
+								<sum1:NumeroDeRegistrosFacturacionAnulacionExportados></sum1:NumeroDeRegistrosFacturacionAnulacionExportados>	
+								<sum1:RegistrosFacturacionExportadosDejanDeConservarse></sum1:RegistrosFacturacionExportadosDejanDeConservarse>
+							</sum1:ExportacionRegFacturacionPeriodo>	
+						</sum1:DatosPropiosEvento>	
+						<sum1:OtrosDatosEvento></sum1:OtrosDatosEvento>
+						<sum1:Encadenamiento>
+							<sum1:PrimerEvento></sum1:PrimerEvento>
+							<sum1:EventoAnterior>
+								<sum1:TipoEvento></sum1:TipoEvento>
+								<sum1:FechaHoraHusoGenEvento></sum1:FechaHoraHusoGenEvento>
+								<sum1:HuellaEvento></sum1:HuellaEvento>
+							</sum1:EventoAnterior>
+						</sum1:Encadenamiento>	
+						<sum1:TipoHuella></sum1:TipoHuella>		
+						<sum1:HuellaEvento></sum1:HuellaEvento>	
+						<sum1:Signature></sum1:Signature>		
+					</sum1:Evento>
+				</sum1:RegistroEvento>
+        </t>
+    </template>
+    
+    <template id="signature" >
+        <t t-name="account_verifactu.signature">
+    	<!-- 
+            On qweb templates it is mandatory to declare any nameespace used
+            ,so, after render we need to remove any namespace declaration    	
+    	 -->
+					<xd:Signature xmlns:xd="http://www.w3.org/2000/09/xmldsig#">
+						<xd:SignedInfo>
+							<xd:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#" />
+							<xd:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256" />
+							<xd:Reference URI="">
+								<xd:Transforms>
+									<xd:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature" />
+									<xd:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#" />
+								</xd:Transforms>
+								<xd:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256" />
+								<xd:DigestValue>${DigestValue"/></xd:DigestValue>
+							</xd:Reference>
+						</xd:SignedInfo>
+						<xd:SignatureValue>${SignatureValue"/></xd:SignatureValue>
+						<xd:KeyInfo>
+							<xd:X509Data>
+								<xd:X509Certificate>${X509Certificate"/></xd:X509Certificate>
+							</xd:X509Data>
+						</xd:KeyInfo>
+					</xd:Signature>        
+		</t>
+    </template>
+
+</odoo>
+
