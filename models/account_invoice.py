@@ -7,15 +7,36 @@ from odoo.exceptions import UserError, ValidationError
 _logger = logging.getLogger(__name__)
 
 _DEFAULT_VERIFACTU_INVOICE_TYPE = {'in_invoice': None, 'in_refund': None, 'out_invoice': 'F1', 'out_refund': 'R1'}
+_VERIFACTU_QWEB_TEMPLATE = {
+    'alta': 'account_verifactu.RegistroAlta',
+    'anulation': 'account_verifactu.RegistroAnulacion',
+}
+_VERIFACTU_LOCKED_FIELDS = {
+    'account_id', 'comment', 'company_id', 'currency_id', 'date_invoice',
+    'invoice_line_ids', 'journal_id', 'name', 'origin', 'partner_id',
+    'payment_term_id', 'reference', 'replaced_invoice', 'verifactu_invoice_type',
+}
+
+
 class AccountInvoice(models.Model):
     _inherit = "account.invoice"
-    
+
     verifactu_ids = fields.One2many(comodel_name = 'account.invoice.verifactu', inverse_name = 'invoice_id')
     verifactu_id = fields.Many2one(comodel_name = 'account.invoice.verifactu', compute='_get_verifactu_id')
     verifactu_qr = fields.Binary(related='verifactu_id.verifactu_qr')
     verifactu_state = fields.Selection(related='verifactu_id.state')
     verifactu_send_date = fields.Datetime(related='verifactu_id.send_date')
     verifactu_active = fields.Boolean(related='company_id.verifactu_active')
+    verifactu_locked = fields.Boolean(
+        string='Veri*Factu Locked',
+        compute='_compute_verifactu_lock_flags',
+        help="Technical flag used to disable edits once the invoice has been accepted by AEAT.",
+    )
+    verifactu_block_reset = fields.Boolean(
+        string='Veri*Factu Prevent Reset',
+        compute='_compute_verifactu_lock_flags',
+        help="Technical flag used to hide the reset to draft button on accepted invoices.",
+    )
         
     # 1) Solo se puede seleccionar como "replaced" una factura de cliente (out_invoice)
     replaced_invoice = fields.Many2one(
@@ -97,16 +118,61 @@ Claves R1–R5 (qué significan)
             rid = last_map.get(invoice_id.id)
             invoice_id.verifactu_id = children_map.get(rid, False)
 
-    
+
+    @api.depends('state', 'type', 'company_id.verifactu_active', 'verifactu_ids.state', 'verifactu_ids.type')
+    def _compute_verifactu_lock_flags(self):
+        for invoice in self:
+            is_sales_invoice = invoice.type in ('out_invoice', 'out_refund')
+            has_company_control = invoice.company_id.verifactu_active if invoice.company_id else False
+            has_notified_alta = any(
+                verifactu_record.type == 'alta' and verifactu_record.state in ('accepted', 'partially_accepted')
+                for verifactu_record in invoice.verifactu_ids
+            )
+            block_reset = bool(is_sales_invoice and has_company_control and has_notified_alta)
+            invoice.verifactu_block_reset = block_reset
+            invoice.verifactu_locked = bool(block_reset and invoice.state in ('open', 'paid'))
+
+
     @api.multi
     def invoice_validate(self):
         res = super(AccountInvoice, self).invoice_validate()
-        invoices_to_verifactu = self.filtered(lambda f: f.type in ['out_invoice','out_refund'] and f.state == 'open' and not float_is_zero(f.amount_total, f.currency_id.rounding))
-        for f in invoices_to_verifactu:
-            f.verifactu_id = self.env['account.invoice.verifactu'].create({'invoice_id': f.id})
-            if f.verifactu_id:
-                res &= f.verifactu_id.send_soap_request()
+        invoices_to_verifactu = self.filtered(lambda f: f.type in ['out_invoice', 'out_refund'] and f.state == 'open' and not float_is_zero(f.amount_total, f.currency_id.rounding))
+        for invoice in invoices_to_verifactu:
+            invoice._verifactu_send_record('alta')
         return res
+
+    @api.multi
+    def action_invoice_cancel(self):
+        res = super(AccountInvoice, self).action_invoice_cancel()
+        for invoice in self.filtered(lambda inv: inv.type in ['out_invoice', 'out_refund'] and inv.company_id.verifactu_active):
+            accepted_records = invoice.verifactu_ids.filtered(lambda r: r.state in ('accepted', 'partially_accepted') and r.type == 'alta')
+            if invoice.state == 'cancel' and accepted_records:
+                invoice._verifactu_send_record('anulation')
+        return res
+
+    @api.multi
+    def action_invoice_draft(self):
+        locked_invoices = self.filtered(lambda inv: inv.state == 'cancel' and inv.verifactu_block_reset)
+        if locked_invoices:
+            raise UserError(_("You cannot reset to draft an invoice that has been informed and accepted by AEAT."))
+        return super(AccountInvoice, self).action_invoice_draft()
+
+    def _verifactu_send_record(self, record_type):
+        self.ensure_one()
+        if not self.company_id.verifactu_active:
+            return False
+        if record_type not in _VERIFACTU_QWEB_TEMPLATE:
+            raise UserError(_("Unsupported Veri*Factu record type: %s") % record_type)
+        verifactu_model = self.env['account.invoice.verifactu']
+        verifactu = verifactu_model.create({'invoice_id': self.id, 'type': record_type})
+        template_xml_id = _VERIFACTU_QWEB_TEMPLATE[record_type]
+        verifactu.with_context(template_xml_id=template_xml_id).generate_register()
+        verifactu.update()
+        verifactu.generate_soap_envelope()
+        verifactu.send_soap_request()
+        if record_type == 'alta' and verifactu.state in ('accepted', 'partially_accepted'):
+            verifactu.generate_qr()
+        return verifactu
 
     # ---------- Lógica de decisión centralizada ----------
     ''' REGLAS DE OBLIGADO CUMPLIMIENTO 
@@ -296,6 +362,14 @@ Claves R1–R5 (qué significan)
     
     @api.multi
     def write(self, vals):
+        if vals:
+            restricted_fields = set(vals) & _VERIFACTU_LOCKED_FIELDS
+            if restricted_fields:
+                locked_invoices = self.filtered(lambda inv: inv.verifactu_locked)
+                if locked_invoices:
+                    raise UserError(_(
+                        "You cannot modify the invoice because it has already been informed and accepted by AEAT."
+                    ))
         res = super().write(vals)
         for inv in self:
             updates = inv._decide_values(vals_snapshot=vals)
@@ -307,11 +381,10 @@ Claves R1–R5 (qué significan)
 class AccountInvoiceTax(models.Model):
     _inherit = "account.invoice.tax"
 
-    impuesto =  fields.Selection(related='tax_id.verifactu_impuesto')
-    impuesto =  fields.Selection(related='tax_id.verifactu_impuesto')
-    regimen =  fields.Selection(related='tax_id.verifactu_regimen')
-    calificacion =  fields.Selection(related='tax_id.verifactu_calificacion')
-    exento =  fields.Selection(related='tax_id.verifactu_exento')
+    impuesto = fields.Selection(related='tax_id.verifactu_impuesto')
+    regimen = fields.Selection(related='tax_id.verifactu_regimen')
+    calificacion = fields.Selection(related='tax_id.verifactu_calificacion')
+    exento = fields.Selection(related='tax_id.verifactu_exento')
     verifactu_active = fields.Boolean(related='company_id.verifactu_active')
 
 
