@@ -6,16 +6,28 @@
             <field name="model">account.invoice</field>
             <field name="inherit_id" ref="account.invoice_form"/>
             <field name="arch" type="xml">
-    			<xpath expr="//sheet/h1[1]/div[1]" position="before">
-    					<field name="verifactu_id" invisible="1"/>
-    					<field name="verifactu_state" invisible="1"/>
-    			        <div attrs="{'invisible': [('sequence_number_next_prefix','!=',False)]}">
-    			            <!--  
-                            <field name="verifactu_qr" readonly="1" widget='image' class="oe_avatar oe_inline" attrs="{'invisible': ['|',('verifactu_id','=',False),('verifactu_state','in',(False,'draft','rejected'))]}"/>
-                            -->
-                            <field name="verifactu_qr" readonly="1" widget="image" class="oe_avatar oe_inline" />
+                        <xpath expr="//button[@name='action_invoice_draft']" position="attributes">
+                                <attribute name="attrs">{'invisible': ['|', ('state', '!=', 'cancel'), ('verifactu_block_reset', '=', True)]}</attribute>
+                        </xpath>
+                        <xpath expr="//sheet" position="attributes">
+                                <attribute name="attrs">{'readonly': [('verifactu_locked', '=', True)]}</attribute>
+                        </xpath>
+                        <xpath expr="//sheet" position="inside">
+                                <div class="alert alert-info" role="alert" attrs="{'invisible': [('verifactu_locked', '=', False)]}">
+                                        <span class="fa fa-info-circle"/>
+                                        <span data-oe-translation="1">This invoice has already been informed to AEAT and cannot be modified.</span>
+                                </div>
+                        </xpath>
+                        <xpath expr="//sheet/h1[1]/div[1]" position="before">
+                                        <field name="verifactu_id" invisible="1"/>
+                                        <field name="verifactu_state" invisible="1"/>
+                                        <field name="verifactu_locked" invisible="1"/>
+                                        <field name="verifactu_block_reset" invisible="1"/>
+                                <div attrs="{'invisible': [('sequence_number_next_prefix','!=', False)]}">
+                            <field name="verifactu_qr" readonly="1" widget="image" class="oe_avatar oe_inline"
+                                   attrs="{'invisible': ['|', '|', ('verifactu_id', '=', False), ('verifactu_state', 'in', (False, 'draft', 'rejected')), ('verifactu_qr', '=', False)]}"/>
                         </div>
-    			</xpath>
+                        </xpath>
     			<xpath expr="//field[@name='tax_line_ids']//field[@name='tax_id']" position="after">
                 	<field name="verifactu_active" invisible="1"/>
                 	<field name="impuesto" attrs="{'invisible':[('verifactu_active','=', False)]}"/>
