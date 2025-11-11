@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.serialization import pkcs12
 from requests_pkcs12 import post as pkcs12_post
 
 from odoo import api, fields, models, _
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
 
 _logger = logging.getLogger(__name__)
 
@@ -22,6 +22,7 @@ class AccountInvoiceVerifactu(models.Model):
     _name = "account.invoice.verifactu"
 
     invoice_id = fields.Many2one('account.invoice')
+    number = fields.Char(related='invoice_id.move_name')
     
     verifactu_qr = fields.Binary("Veri*factu QR",
         help="QR fro veri*factu 200x200px")
@@ -49,17 +50,23 @@ class AccountInvoiceVerifactu(models.Model):
         )
     
     state = fields.Selection([
-          ('draft', 'Borrador'),
+          ('draft', 'No informada'),
           ('accepted', 'Aceptada'),
-          ('partially_accepted', 'Aceptada con errores. Procede enviar ALTA por Subsanación (no anulación), corrigiendo los datos erróneos.'),
-          ('rejected', 'Rechazada, debe volverse a enviar el registro'),
-      ], default='draft')
+          ('partially_accepted', 'Parcialmente Aceptada'),
+          ('rejected', 'Rechazada'),
+      ], default='draft',
+         help="""
+         *draft (No informada): No enviada/informada a la AEAT,
+         *accepted (Aceptada): Enviada/informada a la AEAT y aceptado el registro,
+         *partially_accepted (Parcialmente aceptada):  Enviada/informada a la AEAT y aceptada con errores. Procede enviar ALTA por Subsanación (no anulación), corrigiendo los datos erróneos.,
+         *rejected (Rechazada): Enviada/informada a la AEAT pero el registro es rechazado por errores, debe corregirse y volverse a enviar/informar
+         """)
     
     state_icon = fields.Char(string=' ', compute='_compute_state_icon', store=False)
     
     sin_registro_previo = fields.Selection([('S','Si'),('N','No')], help=_("Not exist an informed invoice"))
     rechazo_previo = fields.Selection([('S','Si'),('N','No'),('X','')], help=_("Exist a rejected try"))
-    subsanacion = fields.Selection([('S','Si'),('N','No')], help=_("Exist a partially acepted register"))
+    subsanacion = fields.Selection([('S','Si'),('N','No')], help=_("Exist a partially accepted register"))
     
     registro_factura = fields.Text(string="Registro Factura Verifactu")
     
@@ -83,6 +90,89 @@ class AccountInvoiceVerifactu(models.Model):
     date_invoice = fields.Char(string='Invoice date format DD-MM-YYYY', compute='_compute_date_invoice', store=False)
     
     send_date = fields.Datetime()
+    
+    @api.model
+    def create(self, values):
+        if 'invoice_id' in values and 'type' in values:
+            invoice_id = self.env['account.invoice'].sudo().browse(values['invoice_id'])
+            # Si el código qr se había generado debemos mantenerlo
+            verifactu_qr = invoice_id.verifactu_qr or b'' # guardamos el código qr
+            if invoice_id.exists() and (invoice_id.type in ['out_invoice','out_refund']) and invoice_id.verifactu_active:
+                if invoice_id.verifactu_invoice_type in invoice_id.verifactu_allowed_type_ids:
+                    if values['type'] == 'alta':
+                        if invoice_id.verifactu_id and invoice_id.verifactu_id.state == 'accepted':
+                            raise UserError(_('Invoice %s has alredy informed correctly') % invoice_id.move_name)
+                        else:
+                            res = super(AccountInvoiceVerifactu,self).create(values)
+                            if res:
+                                res.update_register_data()
+                                if res.invoice_id.company_id.verifactu_sif == 'verificable':
+                                    res.send_soap_request()
+                                    if res.state in ['accepted','partially_accepted']:
+                                        res.generate_qr()
+                                elif res.invoice_id.company_id.verifactu_sif == 'no_verificable':
+                                    res.generate_qr()
+                            return res
+                    elif values['type'] == 'anulation':
+                        if not invoice_id.verifactu_id:
+                            raise UserError(_("Invoice %s isn't informed so you can't anulate it") % invoice_id.move_name)
+                        elif invoice_id.state == 'open' and invoice_id.verifactu_state not in ['accepted','partially_accepted']:
+                            raise UserError(_("Open invoice %s isn't informed so you can't anulate it") % invoice_id.move_name)
+                        elif invoice_id.state == 'cancel' and invoice_id.verifactu_state not in ['rejected']:
+                            raise UserError(_("Canceled invoice %s is informed so you can't anulate it") % invoice_id.move_name)
+                        else:
+                            values['verifactu_qr'] = verifactu_qr # mantenemos el mismo qr que el de la factura sin anular
+                            res = super(AccountInvoiceVerifactu,self).create(values)
+                            if res:
+                                res.update_register_data()
+                                if res.invoice_id.company_id.verifactu_sif == 'verificable':
+                                    res.send_soap_request()
+                                    if res.state in ['accepted','partially_accepted']:
+                                        res.generate_qr()
+                                elif res.invoice_id.company_id.verifactu_sif == 'no_verificable':
+                                    res.write()
+                                    res.generate_qr()
+                            return res
+                    else:
+                        # event to do
+                        raise ValidationError(_("Event process to do"))
+                else:
+                    raise ValidationError(_('Invoice type error'))                    
+            else:
+                raise ValidationError(_('Just out invoices and refund for verifactua active companies should be informed'))
+        else:
+            raise ValidationError(_('Register type or invoice not found'))
+    
+    @api.model
+    def compare_registers(self, reg1, reg2):
+        ''' Comprueba si dos registros se generan a partir de los mismo datos de factura '''
+        parser = etree.XMLParser(remove_blank_text=False) # limpia indentaciones
+        # Etiquetas a ignorar
+        tags = ['Subsanacion','Huella','FechaHoraHusoGenRegistro','RechazoPrevio','Encadenamiento','TipoRectificativa']
+        # string de busqueda
+        path = '//*[local-name()="'+'" or local-name()="'.join(tags)+'"]'
+        # Limpiamos la huella y la fecha de registro para el xml1
+        xml1 = etree.fromstring(reg1.encode('utf-8'), parser=parser)
+        objetivos = xml1.xpath(path)
+        for elem in objetivos:
+            parent = elem.getparent()
+            if parent is not None:
+                parent.remove(elem)
+        
+        xml2 = etree.fromstring(reg2.encode('utf-8'), parser=parser)
+        objetivos = xml2.xpath(path)
+        for elem in objetivos:
+            parent = elem.getparent()
+            if parent is not None:
+                parent.remove(elem)
+        
+        # comparar por C14N tras normalizar
+        reg1_c14n = etree.tostring(xml1, method='c14n', exclusive=True, with_comments=False)
+        reg2_c14n = etree.tostring(xml2, method='c14n', exclusive=True, with_comments=False)
+        _logger.info(self.pretty_xml(reg1_c14n, xml_declaration=False))
+        _logger.info(self.pretty_xml(reg2_c14n, xml_declaration=False))
+        return reg1_c14n == reg2_c14n
+
 
     @api.depends('state')
     def _compute_state_icon(self):
@@ -97,6 +187,10 @@ class AccountInvoiceVerifactu(models.Model):
         
     @api.depends('response')
     def _compute_response_mode(self):
+        '''
+        La AEAT devuelve una respuesta XML cuando la connexión y el envío se ha producido correctamente.
+        En caso contrario devuelve un html 
+        '''
         for rec in self:
             t = (rec.response or '').lstrip()
             low = t[:200].lower()
@@ -127,6 +221,9 @@ class AccountInvoiceVerifactu(models.Model):
 
     @api.model
     def pretty_xml(self, xml_str, encoding='UTF-8', xml_declaration=True):
+        '''
+        Permite visualizar la respusta de forma legible
+        '''
         if xml_str in (None, b'', u''):
             return xml_str
 
@@ -150,10 +247,16 @@ class AccountInvoiceVerifactu(models.Model):
                 xml_declaration=(xml_declaration if is_bytes else False),
             )
             
-    @api.model
+    @api.multi
     def verifactu_endpoint(self):
+        '''
+        Depende de la configuración del módulo y de la configiración de la compañia.
+        El endpoint varia según se trate de sofware verificable o no
+        y si estamos en modo producción o pruebas
+        '''
+        self.ensure_one()
         runing_method = self.sudo().env['ir.config_parameter'].get_param('account_verifactu.verifactu_runing_method')
-        sif_verificable = self.sudo().env['ir.config_parameter'].get_param('account_verifactu.verifactu_sif_verificable')
+        sif_verificable = self.invoice_id.company_id.verifactu_sif
         endpoint = False
         if runing_method == 'production':
             if sif_verificable == 'verificable':
@@ -169,7 +272,10 @@ class AccountInvoiceVerifactu(models.Model):
     
     @api.multi
     def generate_qr(self):
-        endpoint = self.verifactu_endpoint().replace('/ws/SistemaFacturacion/VerifactuSOAP','/ValidarQR').replace('/ws/SistemaFacturacion/RequerimientoSOAP','ValidarQRNoVerifactu').replace('www1','www2')
+        '''
+        Genera el QR y lo asocia al registro
+        '''
+        
 
         report = self.env['ir.actions.report']
         for vf in self:
@@ -179,7 +285,7 @@ class AccountInvoiceVerifactu(models.Model):
             vat = re.sub(r"^%s" % re.escape(country_code), "", vat_number, flags=re.IGNORECASE).strip()
             date = datetime.strptime(vf.invoice_id.date_invoice, "%Y-%m-%d").strftime("%d-%m-%Y")
             amount = "{:.2f}".format(vf.invoice_id.amount_total)
-            number = vf.invoice_id.number
+            number = vf.invoice_id.move_name
             params = {
                 'nif': vat,
                 'numserie': number,   # el '/' se codificará a %2F
@@ -187,14 +293,15 @@ class AccountInvoiceVerifactu(models.Model):
                 'importe': amount,             # punto decimal
             }
             # Codifica SOLO valores de parámetros (mantén ?, &, = sin codificar)
+            endpoint = self.verifactu_endpoint().replace('/ws/SistemaFacturacion/VerifactuSOAP','/ValidarQR').replace('/ws/SistemaFacturacion/RequerimientoSOAP','ValidarQRNoVerifactu').replace('www1','www2')
             value = endpoint + '?' + urlencode(params, quote_via=quote, safe='')
             # Genera el QR sin volver a codificar la URL completa
             png = report.barcode('QR', value, width=200, height=200, humanreadable=0)
             # genera PNG (bytes) y guarda en binario (base64-encoded BYTES, no str)
             vf.verifactu_qr = base64.b64encode(png)  # NO hagas str(...)
         # importante: recargar la vista para ver la imagen recién escrita
-        return {'type': 'ir.actions.client', 'tag': 'reload'}        
-
+        return {'type': 'ir.actions.client', 'tag': 'reload'}   
+    
     @api.multi
     def _build_signature_tag_from_p12(self):
         """
@@ -218,9 +325,9 @@ class AccountInvoiceVerifactu(models.Model):
             _logger.exception("XML inválido para firmar")
             raise UserError(_("El XML a firmar no es válido: %s") % e)
         
-            # 1.b) Recuperar compañía y validar que tiene certificado en campos Binary
+        # 1.b) Recuperar compañía y validar que tiene certificado en campos Binary
         company = self.invoice_id.company_id if self.invoice_id else False
-        if not (company and company.verifactu_active):
+        if not (company and company.verifactu_date):
             raise UserError(_("Esta compañía no está habilitada para Verifactu."))
     
         if not company.verifactu_p12_file:
@@ -311,18 +418,18 @@ class AccountInvoiceVerifactu(models.Model):
         if self.type=='alta':
             cuples = [
                 ("IDEmisorFactura", vat),
-                ("NumSerieFactura", self.invoice_id.number.strip()),
+                ("NumSerieFactura", self.invoice_id.move_name.strip()),
                 ("FechaExpedicionFactura", self.date_invoice.strip()),
-                ("TipoFactura", self.invoice_id.verifactu_invoice_type),
-                ("CuotaTotal", "{:.2f}".format(self.invoice_id.amount_tax or 0.00)),
-                ("ImporteTotal", "{:.2f}".format(self.invoice_id.amount_total or 0.00)),
+                ("TipoFactura", self.invoice_id.verifactu_invoice_type.type),
+                ("CuotaTotal", "{:.2f}".format(self.invoice_id.amount_tax  * (1 if self.invoice_id.type == 'out_invoice' else -1))),
+                ("ImporteTotal", "{:.2f}".format(self.invoice_id.amount_total  * (1 if self.invoice_id.type == 'out_invoice' else -1))),
                 ("Huella", (self.anterior and self.anterior.hash or "").strip()),
                 ("FechaHoraHusoGenRegistro", self.generation_date),
             ]
         elif self.type=='anulation':
             cuples = [
                 ("IDEmisorFacturaAnulada", vat),
-                ("NumSerieFacturaAnulada", self.invoice_id.number.strip()),
+                ("NumSerieFacturaAnulada", self.invoice_id.move_name.strip()),
                 ("FechaExpedicionFacturaAnulada", self.date_invoice.strip()),
                 ("Huella", (self.anterior and self.anterior.hash or "").strip()),
                 ("FechaHoraHusoGenRegistro", self.generation_date),
@@ -340,30 +447,27 @@ class AccountInvoiceVerifactu(models.Model):
             ]            
         if cuples:
             chain = "&".join("{}={}".format(k, v) for k, v in cuples)
-    
             self.hash = hashlib.sha256(chain.encode("utf-8")).hexdigest().upper()
+            _logger.info('Hass: %s calculated for chain %s' % (self.hash, chain))
         return chain
     
     @api.multi
-    def update(self):
+    def update_register_data(self):
         self.ensure_one()
     
         # === 0) Tiempos para cadena/encadenamiento now() in ISO format===
         self.generation_date = (lambda s: s[:-2] + ':' + s[-2:])(
             fields.Datetime.context_timestamp(self, datetime.utcnow()).strftime('%Y-%m-%dT%H:%M:%S%z')
         )
-    
-        domain = [
-                ('id', '!=', self.id),
-                ('state', '!=', 'draft'),
-                ('invoice_id.company_id', '=', self.invoice_id.company_id.id),
-            ]
+        domain = [('id', '!=', self.id)] if not isinstance(self.id, models.NewId) else []
+        domain += [('state', '!=', 'draft'),('invoice_id.company_id', '=', self.invoice_id.company_id.id),]
         domain += [('type','=','event')] if self.type == 'event' else [('type','!=','event')]
             
         prev_any = self.search(domain + [('invoice_id', '=', self.invoice_id.id),], order='send_date desc, generation_date desc, id desc', limit=1)
         prev_rejected = bool(prev_any and prev_any.state == 'rejected')
         prev_in_aeat = self.search(domain + [('invoice_id', '=', self.invoice_id.id),('state', 'in', ['accepted', 'partially_accepted']),], limit=1).exists()
-        self.anterior = self.search(domain, order="send_date desc, generation_date desc, id desc", limit=1)
+        # El encadenado debe sólo con registros aceptados o partcialmente aceptados
+        self.anterior = self.search(domain + [('state', 'in', ['accepted', 'partially_accepted']),], order="send_date desc, generation_date desc, id desc", limit=1)
     
         # === 1) Ramas por tipo ===
         if self.type == 'alta':
@@ -382,20 +486,14 @@ class AccountInvoiceVerifactu(models.Model):
     
         # === 2) Huella (dependiente de type)
         self.generate_hash()
-
+        self.generate_register()
         # === 3) Firma y regeneración XML en No-Verificable ===
-        sif_mode = self.sudo().env['ir.config_parameter'].get_param('account_verifactu.verifactu_sif_verificable')
-        if sif_mode == 'no_verificable':
+        if self.invoice_id.company_id.verifactu_sif == 'no_verificable':
             self.signature = self._build_signature_tag_from_p12()
             if not self.signature:
                 raise UserError(_("Unverificable software: se requiere p12 en la compañía."))
             # Re-render con <ds:Signature/> embebida
-            tmpl = {
-                'alta': 'account_verifactu.RegistroFacturaAlta',
-                'anulation': 'account_verifactu.RegistroFacturaAnulacion',
-                'event': 'account_verifactu.RegistroEvento',
-            }[self.type]
-            self.with_context(template_xml_id=tmpl).generate_register()
+            self.generate_register()
     
         return True
 
@@ -403,9 +501,19 @@ class AccountInvoiceVerifactu(models.Model):
     @api.multi
     def generate_register(self):
         """Renderiza el template QWeb y guarda el resultado en RegistroFactura."""
-        template_xml_id = self._context.get('template_xml_id',False)
+        self.ensure_one()
+        if not self.invoice_id or not self.invoice_id.verifactu_active:
+            raise UserError(_("There isn't any information to send"))
+        
+        default_template = {
+                'alta': 'account_verifactu.RegistroAlta',
+                'anulation': 'account_verifactu.RegistroAnulacion',
+                'event': 'account_verifactu.RegistroEvento',
+                }[self.type]
+        template_xml_id = self._context.get('template_xml_id',default_template)
         if not template_xml_id:
             return False
+
         self.ensure_one()
         qweb = self.env['ir.qweb']
         values = {
@@ -439,33 +547,24 @@ class AccountInvoiceVerifactu(models.Model):
         except:
             raise UserError(_("Could'nt be posible to prepare sopa envelope"))
         return True
-    
-    
-    @api.multi
+
     def send_soap_request(self):
         self.ensure_one()
-        if not self.invoice_id or not self.invoice_id.company_id.verifactu_active or not self.request:
+        if not self.invoice_id or not self.invoice_id.verifactu_active or not self.registro_factura:
             raise UserError(_("There isn't any information to send"))
-        verifactu_runing_method = self.sudo().env['ir.config_parameter'].get_param('account_verifactu.verifactu_runing_method')
-        verifactu_sif_verificable = self.sudo().env['ir.config_parameter'].get_param('account_verifactu.verifactu_sif_verificable')
-        verifactu_endpoint = False
-        if verifactu_runing_method == 'production':
-            if verifactu_sif_verificable == 'verificable':
-                verifactu_endpoint = verifactu_sif_verificable = self.sudo().env['ir.config_parameter'].get_param('account_verifactu.verifactu_endpoint_produccion_verificable')
-            else:
-                verifactu_endpoint = verifactu_sif_verificable = self.sudo().env['ir.config_parameter'].get_param('account_verifactu.verifactu_endpoint_produccion_no_verificable')
-        else:
-            if verifactu_sif_verificable == 'verificable':
-                verifactu_endpoint = verifactu_sif_verificable = self.sudo().env['ir.config_parameter'].get_param('account_verifactu.verifactu_endpoint_no_produccion_verificable')
-            else:
-                verifactu_endpoint = verifactu_sif_verificable = self.sudo().env['ir.config_parameter'].get_param('account_verifactu.verifactu_endpoint_no_produccion_no_verificable')
-        # Preparar headers y endpoint
+        self.generate_soap_envelope()
+        return self.send_aeat()
+    
+    def send_aeat(self):
+        self.ensure_one()
+        # Preparar headers, endpoint
         headers = {
             'Content-Type': 'text/xml; charset=utf-8',
         }
         soap_action = self.sudo().env['ir.config_parameter'].get_param('account_verifactu.soap_action') or ''
         if soap_action:
             headers['SOAPAction'] = soap_action
+        verifactu_endpoint = self.verifactu_endpoint()
 
         # Verificación SSL configurable (por defecto True)
         ssl_verify_param = self.sudo().env['ir.config_parameter'].get_param('account_verifactu.ssl_verify', 'True')
@@ -474,8 +573,7 @@ class AccountInvoiceVerifactu(models.Model):
         if not verifactu_endpoint:
             self.state = 'rejected'
             raise UserError(_("No hay endpoint configurado para Veri*factu."))
-
-        # Enviar el sobre SOAP y guardar la respuesta
+        
         try:
             # La administración exige una conexión segurra de punto a punto
             p12_data = base64.b64decode(self.invoice_id.company_id.verifactu_p12_file or b'')
@@ -490,6 +588,8 @@ class AccountInvoiceVerifactu(models.Model):
                 verify=verify_ssl,      # cadena de confianza (True o ruta a CA)
             )
             self.response = self.pretty_xml(resp.text, encoding='UTF-8', xml_declaration=True) or ''
+            _logger.infor('AEAT request: %s' % self.request)
+            _logger.info('AEAT response: %s' % self.response)
             # En caso de respuesta de tipo html no aseguramos de mantener la codificación
             if self.response_mode == 'html':
                 raw = resp.content  # bytes
@@ -577,6 +677,7 @@ class AccountInvoiceVerifactu(models.Model):
             return {'type': 'ir.actions.client', 'tag': 'reload'}
 
         return self.write({'send_date': fields.Datetime.now()})
+        
     
     def action_send_bulk(self):
         """Enviar registros en bloque (histórico)"""

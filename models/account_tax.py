@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-,
 import logging
-from odoo import fields, models
+from odoo import api,fields, models
 
 _logger = logging.getLogger(__name__)
 
 class AccountInvoiceTax(models.Model):
     _inherit = "account.tax"
     
-    verifactu_active = fields.Boolean(related='company_id.verifactu_active')
+    verifactu_active = fields.Boolean(compute='_get_verifactu_active')
 
     verifactu_impuesto =  fields.Selection([
         ('01','Impuesto sobre el Valor Añadido (IVA)'),
@@ -52,3 +52,8 @@ class AccountInvoiceTax(models.Model):
         ('E5','Exenta por el artículo 25'),
         ('E6','Exenta por otros')
         ])
+    
+    @api.depends('company_id.verifactu_date')
+    def _get_verifactu_active(self):
+        for t in self:
+            t.verifactu_active = bool(t.company_id.verifactu_date)
