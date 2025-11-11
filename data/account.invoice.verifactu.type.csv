@@ -1,0 +1,9 @@
+id,type,name
+account_verifactu_f1,F1,Factura ordinaria
+account_verifactu_f2,F2,Factura sin identificación del destinatario
+account_verifactu_f3,F3,Factura de sustitución de factura tipo F2
+account_verifactu_r1,R1,Rectificativa por “error fundado en derecho”
+account_verifactu_r2,R2,Rectificativa por concurso de acreedores
+account_verifactu_r3,R3,Rectificativa por créditos incobrables
+account_verifactu_r4,R4,Rectificativa resto de supuestos
+account_verifactu_r5,R5,Rectificativa de factura simplificada

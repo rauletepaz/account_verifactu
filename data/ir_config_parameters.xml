@@ -19,12 +19,7 @@
     <record id="param_verifactu_runing_method" model="ir.config_parameter">
       <field name="key">account_verifactu.verifactu_runing_method</field>
       <field name="value">no_production</field>
-    </record>
-    <record id="param_verifactu_sif_verificable" model="ir.config_parameter">
-      <field name="key">account_verifactu.verifactu_sif_verificable</field>
-      <field name="value">no_verificable</field>
-    </record>
-    
+    </record>    
     <record id="param_verifactu_endpoint_produccion_verificable" model="ir.config_parameter">
       <field name="key">account_verifactu.verifactu_endpoint_produccion_verificable</field>
       <field name="value">https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP</field>
@@ -41,6 +36,10 @@
     <record id="param_verifactu_endpoint_no_produccion_no_verificable" model="ir.config_parameter">
       <field name="key">account_verifactu.verifactu_endpoint_no_produccion_no_verificable</field>
       <field name="value">https://prewww1.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/RequerimientoSOAP</field>
+    </record>
+    <record id="param_verifactu_simplified_invoices" model="ir.config_parameter">
+      <field name="key">account_verifactu.verifactu_simplified_invoices</field>
+      <field name="value">0</field>
     </record>
   </data>
 </odoo>
