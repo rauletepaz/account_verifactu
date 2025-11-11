@@ -18,21 +18,29 @@
                                     </div>
                                      <div class="content-group">
                                         <field name="verifactu_runing_method" class="o_light_label mt16" widget="radio"/>
-                                    	<field name="verifactu_sif_verificable" class="o_light_label mt16" widget="radio"/>
+                                    	<!-- <field name="verifactu_sif_verificable" class="o_light_label mt16" widget="radio"/> -->
                                     </div>
                                     <div class="content-group" id="AEAT_endpoint">
 	                                    <div class="text-muted">
 	                                        Veri*factu SOAP AEAT endpoint.
 	                                    </div>
-	                                    <label string="Verificable, Testing"/>
-                                        <field name="verifactu_endpoint_no_produccion_verificable" placeholder="mycompany.odoo.com"/>
-	                                    <label string="No Verificable, Testing"/>
-                                        <field name="verifactu_endpoint_no_produccion_no_verificable" placeholder="mycompany.odoo.com"/>
-	                                    <label string="Verificable, Production"/>
-                                        <field name="verifactu_endpoint_produccion_verificable" placeholder="mycompany.odoo.com"/>
-	                                    <label string="No Verificable, Production"/>
-                                        <field name="verifactu_endpoint_produccion_no_verificable" placeholder="mycompany.odoo.com"/>
-                                    </div>                                    
+	                                    <label for="verifactu_endpoint_no_produccion_verificable" string="Verificable, Testing" attrs="{'invisible': ['|',('verifactu_runing_method','!=','no_production')]}"/>
+                                        <field name="verifactu_endpoint_no_produccion_verificable" placeholder="mycompany.odoo.com" attrs="{'invisible': ['|',('verifactu_runing_method','!=','no_production')]}"/>
+	                                    <label for="verifactu_endpoint_no_produccion_no_verificable" string="No Verificable, Testing" attrs="{'invisible': ['|',('verifactu_runing_method','!=','no_production')]}"/>
+                                        <field name="verifactu_endpoint_no_produccion_no_verificable" placeholder="mycompany.odoo.com" attrs="{'invisible': ['|',('verifactu_runing_method','!=','no_production')]}"/>
+	                                    <label for="verifactu_endpoint_produccion_verificable" string="Verificable, Production" attrs="{'invisible': ['|',('verifactu_runing_method','!=','production')]}"/>
+                                        <field name="verifactu_endpoint_produccion_verificable" placeholder="mycompany.odoo.com" attrs="{'invisible': ['|',('verifactu_runing_method','!=','production')]}"/>
+	                                    <label for="verifactu_endpoint_produccion_no_verificable" string="No Verificable, Production" attrs="{'invisible': ['|',('verifactu_runing_method','!=','production')]}"/>
+                                        <field name="verifactu_endpoint_produccion_no_verificable" placeholder="mycompany.odoo.com" attrs="{'invisible': ['|',('verifactu_runing_method','!=','production')]}"/>
+                                    </div>          
+                                    <div class="content-group" id="AEAT_other">
+	                                    <div class="text-muted">
+	                                        Veri*factu Other configuration.
+	                                    </div>
+	                                    <label string="Allow Simplified invoices"/>
+                                        <field name="verifactu_simplified_invoices"/>
+                                    </div>
+                                                              
                                 </div>
                             </div>
                                     

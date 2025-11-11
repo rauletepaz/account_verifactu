@@ -13,7 +13,8 @@
               decoration-success="state == 'accepted'"
               decoration-danger="state == 'rejected'">
             	<field name="id"/>
-                <field name="invoice_id"/>
+                <field name="invoice_id" invisible="1"/>
+                <field name="number"/>
                 <field name="state"/>
                 <field name="type"/>
                 <field name="hash"/>
@@ -75,7 +76,7 @@
 							attrs="{'invisible':[('state','in',['accepted','partially_accepted']),('invoice_id','=',False)]}"/>
 					<button name="generate_hash" type="object" string="Calculate Hash"
 							attrs="{'invisible':[('state','!=','draft'),('invoice_id','=',False)]}"/>
-					<button name="send_soap_request" type="object" string="send to AEAT"
+					<button name="send_aeat" type="object" string="send to AEAT"
 							attrs="{'invisible':[('state','!=','draft'),('invoice_id','=',False)]}"						
 							class="oe_highlight" />
 					<field name="state" widget="statusbar" statusbar_visible="draft,accepted,partially_accepted,rejected"/>                

@@ -1,14 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
         <!-- QR -->
+        
+        <!-- MODIFY CANCEL BUTTON -->
         <record id="account_invoice_verifactu_inherit_form" model="ir.ui.view">
             <field name="name">account.invoice.verifactu.inherit.form</field>
             <field name="model">account.invoice</field>
             <field name="inherit_id" ref="account.invoice_form"/>
             <field name="arch" type="xml">
+            	<xpath expr="//header" position="replace">
+	            	<header>
+	            		<field name="verifactu_active" invisible="1"/>
+			            <button name="action_invoice_sent" 				type="object" string="Send by Email" 	groups="base.group_user"	attrs="{'invisible':['|',('sent','=',True),'|',('state','not in',['open','paid']),'&amp;',('verifactu_active','=',True),('verifactu_state','!=','accepted')]}" class="oe_highlight o_invoice_send oe_read_only" />
+			            <button name="action_invoice_sent" 				type="object" string="Send by Email" 	groups="base.group_user" 	attrs="{'invisible':['|',('sent','=',False),'|',('state','not in',['open','paid']),'&amp;',('verifactu_active','=',True),('verifactu_state','!=','accepted')]}"  class="oe_read_only"/>
+							
+			            <button name="invoice_print" 					type="object" string="Print Invoice" 	groups="base.group_user"	attrs="{'invisible':['|',('sent','=',True),'|',('state','not in',['open','paid']),'&amp;',('verifactu_active','=',True),('verifactu_state','!=','accepted')]}" class="oe_highlight oe_read_only" />
+			            <button name="invoice_print" 					type="object" string="Print Invoice" 	groups="base.group_user" 	attrs="{'invisible':['|',('sent','=',False),'|',('state','not in',['open','paid']),'&amp;',('verifactu_active','=',True),('verifactu_state','!=','accepted')]}" class="oe_read_only"/> 
+
+		 		 		<button name="action_invoice_inform" 			type="object" string="Inform AEAT" 		groups="account.group_account_invoice"	attrs="{'invisible':['|','|',('state','=','cancel'),('verifactu_active','=',False),('verifactu_state','=','accepted')]}" class="oe_highlight o_invoice_send oe_read_only"/>
+
+		                <button name="action_account_invoice_payment" 	type="object" string="Register Payment" groups="account.group_account_invoice"	attrs="{'invisible': [('state','not in',['open'])]}" class="oe_highlight oe_read_only" id="account_invoice_payment_btn" />
+		                <button name="action_invoice_open" 				type="object" string="Validate" 		groups="account.group_account_invoice"	attrs="{'invisible':['|',('verifactu_active','=',True),('state','!=','draft')]}" class="oe_highlight o_invoice_validate oe_read_only" />
+		                <button name="action_account_invoice_refund"	type='object' string='Add Credit Note'	groups="account.group_account_invoice"	attrs="{'invisible': ['|',('type', '=', 'out_refund'), ('state', 'not in', ('open','paid'))]}" class="oe_read_only"/>
+		                <button name="action_invoice_draft" 			type="object" string="Reset to Draft" 	groups="account.group_account_invoice"	attrs="{'invisible':['|',('verifactu_active','=',True),('state','!=','cancel')]}" class="oe_read_only"/>
+                   		<button name="action_invoice_cancel"            type="object" string="Cancel Invoice" groups="account.group_account_invoice"    attrs="{'invisible':['|',('verifactu_active','=',True),('state','not in',['open','paid'])]}" class="oe_read_only"/>
+		            	<button name="action_invoice_invalidate"        type="object" string="Invalidate Invoice" groups="account.group_account_invoice" attrs="{'invisible':['|',('verifactu_active','=',False),'|',('state','not in',['open','paid','cancel']),'&amp;',('state','=','cancel'),('verifactu_state','not in',['rejected'])]}" class="oe_read_only"/>
+
+	                    <field name="verifactu_state" widget="statusbar" nolabel="1" statusbar_visible="draft,accepted,partially_accepted,rejected" attrs="{'invisible':['|',('verifactu_active','=',False)]}"/>  
+	                    <field name="state" widget="statusbar" nolabel="1" statusbar_visible="draft,open,paid,cancel"/>
+	                </header>          		
+            	</xpath>
     			<xpath expr="//sheet/h1[1]/div[1]" position="before">
     					<field name="verifactu_id" invisible="1"/>
-    					<field name="verifactu_state" invisible="1"/>
     			        <div attrs="{'invisible': [('sequence_number_next_prefix','!=',False)]}">
     			            <!--  
                             <field name="verifactu_qr" readonly="1" widget='image' class="oe_avatar oe_inline" attrs="{'invisible': ['|',('verifactu_id','=',False),('verifactu_state','in',(False,'draft','rejected'))]}"/>
@@ -16,12 +39,38 @@
                             <field name="verifactu_qr" readonly="1" widget="image" class="oe_avatar oe_inline" />
                         </div>
     			</xpath>
+    			<xpath expr="//field[@name='payment_term_id']" position="after">
+    				<field name="verifactu_allowed_type_ids" invisible="1"/>
+    				<field name="verifactu_invoice_type" 
+    					   options="{'no_create': True, 'no_open': True, 'no_quick_create': True}"
+    					   context="{'m2o_limit': 8}"
+    					   domain="[('id', 'in', verifactu_allowed_type_ids)]"
+    					   attrs="{'invisible': [('verifactu_active','=',False)]}"/>
+    			</xpath>
+    			<xpath expr="//field[@name='date_due']" position="attributes">
+    				<attribute name="attrs">{'readonly': ['|',('payment_term_id','!=',False),'|','&amp;',('state', 'not in', ['draft']),('verifactu_active','=',False),'&amp;',('state', 'not in', ['draft','open']),('verifactu_active','=',True)]}</attribute>
+    			</xpath>
+    			<xpath expr="//field[@name='payment_term_id']" position="attributes">
+    				<attribute name="attrs">{'readonly': ['|','&amp;',('state', 'not in', ['draft']),('verifactu_active','=',False),'&amp;',('state', 'not in', ['draft','open']),('verifactu_active','=',True)]}</attribute>
+    			</xpath>
+    			<xpath expr="//field[@name='user_id']" position="attributes">
+    				<attribute name="attrs">{'readonly': ['|','&amp;',('state', 'not in', ['draft']),('verifactu_active','=',False),'&amp;',('state', 'not in', ['draft','open','paid']),('verifactu_active','=',True)]}</attribute>
+    			</xpath>
+    			<xpath expr="//field[@name='team_id']" position="attributes">
+    				<attribute name="attrs">{'readonly': ['|','&amp;',('state', 'not in', ['draft']),('verifactu_active','=',False),'&amp;',('state', 'not in', ['draft','open','paid']),('verifactu_active','=',True)]}</attribute>
+    			</xpath>
+    			<xpath expr="//field[@name='invoice_line_ids']" position="attributes">
+    				<attribute name="attrs">{'readonly': ['|','&amp;',('state', 'not in', ['draft']),('verifactu_active','=',False),'&amp;',('state', 'not in', ['draft','open','paid']),('verifactu_active','=',True)]}</attribute>
+    			</xpath>
+    			<xpath expr="//field[@name='comment']" position="attributes">
+    				<attribute name="attrs">{'readonly': ['|','&amp;',('state', 'not in', ['draft']),('verifactu_active','=',False),'&amp;',('state', 'not in', ['draft','open','paid']),('verifactu_active','=',True)]}</attribute>
+    			</xpath>    			
     			<xpath expr="//field[@name='tax_line_ids']//field[@name='tax_id']" position="after">
-                	<field name="verifactu_active" invisible="1"/>
                 	<field name="impuesto" attrs="{'invisible':[('verifactu_active','=', False)]}"/>
                 	<field name="regimen" attrs="{'invisible':[('verifactu_active','=', False)]}"/>
                 	<field name="calificacion" attrs="{'invisible':[('verifactu_active','=', False)]}"/>
                 	<field name="exento" attrs="{'invisible':[('verifactu_active','=', False)]}"/>
+	                <field name="verifactu_active" invisible="1"/>
                 </xpath>
             </field>
         </record>
@@ -55,5 +104,5 @@
                 </xpath>
             </field>
         </record>
-        
+
 </odoo>

@@ -7,15 +7,14 @@
     <field name="arch" type="xml">
     	<xpath expr="//notebook[@colspan='4']/page[1]/group/group" position="inside">
         	<group name="Verifactu" string="Veri*factu / AEAT" colspan="4">
-        	    <field name="verifactu_active" />
+        	    <field name="verifactu_date" />
         	    <field name="verifactu_razon_social" />
           		<field name="verifactu_operation" placeholder="Use your CNAE description"/>
-          		
+          		<field name="verifactu_sif" attrs="{'invisible': [('verifactu_date','==',False)]}"/>
 		        <field name="verifactu_p12_filename" invisible="1" />
-		        <field name="verifactu_p12_file" filename="verifactu_p12_filename"  widget="binary"/>
-		        <field name="verifactu_p12_password" password="True" placeholder="••••••••"/>
-		        
-          		
+		        <field name="verifactu_p12_file" filename="verifactu_p12_filename"  widget="binary" />
+		        <field name="verifactu_p12_password" password="True" placeholder="••••••••" />
+		        <field name="verifactu_simplified_invoices"/>	
         	</group>
      	</xpath>
     </field>
