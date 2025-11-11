@@ -21,12 +21,12 @@ Adaption to spanish verifactu:
 Important New Behavoir
 ======================
 
-These are the most important changes for user:
-	- Cancel state for an informed and acepted invoice meens anulation for all legal effect. You can't change state from cancel to draft anymore, so be carefull.
-	- Open and Paid state meens invoice informed and acepted for legal effact. You won't be able anymore to modify an invoice.
+These are the most important changes for user that affect emited invoices and refunds:
+	- Cancel state for an informed and accepted invoice meens anulation for all legal effect. You can't change state from cancel to draft anymore, so be carefull.
+	- Open and Paid state meens invoice informed and accepted for legal effact. You won't be able anymore to modify an invoice.
 	- Every invoice validation will be informed to AEAT
 	- Every invoice anulation will be informed to AEAT
-	- You will have a QR when the invoice was informed an acepted by AEAT
+	- You will have a QR when the invoice was informed an accepted by AEAT
 	
 ====
 FAQS
@@ -37,7 +37,7 @@ How can I correct an invoice emited by error?
 
 
 
-How can I correct an error on an informed and acepted invoice?
+How can I correct an error on an informed and accepted invoice?
 	The only way you can do that is to do a rectifivative invoice that cancel the total amount of wrong invoice an create a totally new corrected invoice.
 	
 	
@@ -58,9 +58,11 @@ I canceled an invoice but I really wanted to modify it, what can I do?
 	
 	
 I validated an invoice but I can't see the QR code. What's happens?
-	That meens that you invoice was acepted but some error was detected. Please conctact your system administrator to solve this issue.
+	That meens that you invoice was accepted but some error was detected. Please conctact your system administrator to solve this issue.
 
-
+How can I see register sent to AEAT
+	For test:         https://prewww1.aeat.es/wlpl/TIKE-CONT/SvTikeEmitidasQuery
+	For production: 
 
 Requirements
 ============
