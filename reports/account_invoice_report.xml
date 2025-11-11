@@ -1,0 +1,52 @@
+<odoo>
+
+				<t t-if="o.verifactu_qr">
+					<style type="text/css">
+								/* Bloque posicionado y acotado */
+							    .verifactu-qr {
+							      position: absolute;
+							      top: 22mm;
+							      left: 85mm;
+							      width: 35mm;    /* máximo ancho */
+							      height: 35mm;   /* máximo alto */
+							      font-family: Helvetica, Arial, sans-serif;
+							      color: #000;
+							    }
+							    .verifactu-qr .title {
+							      text-align: center;
+							      font-size: 6pt;
+							      font-weight: 600;
+							      margin: 0;
+							      line-height: 1.15;
+							    }
+							    /* Imagen QR – cuadrada y contenida */
+							    .verifactu-qr img {
+							      width: 35mm;              /* deja ~1mm de margen interior por lado */
+							      height: 35mm;             /* cuadrado */
+							      object-fit: contain;      /* seguridad si el PNG no es perfectamente cuadrado */
+							      image-rendering: pixelated; /* mejora legibilidad de QR en PDF */
+							      display: block;
+							    }
+							    .verifactu-qr .subtitle {
+							      text-align: center;
+							      font-size: 6pt;
+							      line-height: 1.15;
+							      margin: -2mm;
+							      word-wrap: break-word;
+							    }
+											      
+			    	</style>
+			    	<div class="verifactu-qr">
+					    <p class="title">QR Tributario</p>
+
+	              <img t-att-src="'data:image/png;base64,%s' % (isinstance(o.verifactu_qr, bytes) and o.verifactu_qr.decode('ascii') or (o.verifactu_qr or ''))"/>
+
+					    <p class="subtitle">
+					      Factura verificable en la sede<br/>
+					      electrónica de la AEAT
+					    </p>
+					</div>
+				</t>
+
+
+</odoo>

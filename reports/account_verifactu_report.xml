@@ -37,13 +37,16 @@ xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
 						<sum1:IDVersion>1.0</sum1:IDVersion>
 						<sum1:IDFactura>
 							<sum1:IDEmisorFactura><t t-esc="o.invoice_id.company_id.partner_id.vat_clean()[1]"/></sum1:IDEmisorFactura>
-							<sum1:NumSerieFactura><t t-esc="o.invoice_id.number"/></sum1:NumSerieFactura>
+							<sum1:NumSerieFactura><t t-esc="o.invoice_id.move_name"/></sum1:NumSerieFactura>
 							<sum1:FechaExpedicionFactura><t t-esc="o.date_invoice"/></sum1:FechaExpedicionFactura>
 						</sum1:IDFactura>
 						<sum1:NombreRazonEmisor><t t-esc="o.invoice_id.company_id.verifactu_razon_social"/></sum1:NombreRazonEmisor>
 						<sum1:Subsanacion><t t-esc="o.subsanacion"/></sum1:Subsanacion>
 						<sum1:RechazoPrevio><t t-esc="o.rechazo_previo"/></sum1:RechazoPrevio>
-						<sum1:TipoFactura><t t-esc="o.invoice_id.verifactu_invoice_type"/></sum1:TipoFactura>
+						<sum1:TipoFactura><t t-esc="o.invoice_id.verifactu_invoice_type.type"/></sum1:TipoFactura>
+						<t t-if="o.invoice_id.verifactu_invoice_type.type in ['R1','R2','R3','R4','R5']">
+							<sum1:TipoRectificativa>I</sum1:TipoRectificativa>
+						</t>
 						<sum1:DescripcionOperacion><t t-esc="o.invoice_id.company_id.verifactu_operation"/></sum1:DescripcionOperacion>
 						<sum1:Destinatarios>
 							<sum1:IDDestinatario>
@@ -63,18 +66,18 @@ xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
 									<sum1:CalificacionOperacion><t t-esc="tax_line.tax_id.verifactu_calificacion"/></sum1:CalificacionOperacion>
 								</t>
 								<sum1:TipoImpositivo><t t-esc="'{:.2f}'.format(tax_line.tax_id.amount or 0.00)"/></sum1:TipoImpositivo>
-								<sum1:BaseImponibleOimporteNoSujeto><t t-esc="tax_line.base"/></sum1:BaseImponibleOimporteNoSujeto>
-								<sum1:CuotaRepercutida><t t-esc="'{:.2f}'.format(tax_line.amount_total or 0.00)"/></sum1:CuotaRepercutida>
+								<sum1:BaseImponibleOimporteNoSujeto><t t-esc="'{:.2f}'.format(tax_line.base * (1 if o.type == 'out_invoice' else -1))"/></sum1:BaseImponibleOimporteNoSujeto>
+								<sum1:CuotaRepercutida><t t-esc="'{:.2f}'.format(tax_line.amount_total  * (1 if o.type == 'out_invoice' else -1))"/></sum1:CuotaRepercutida>
 							</sum1:DetalleDesglose>
 					   	</t>
 						</sum1:Desglose>
-						<sum1:CuotaTotal><t t-esc="'{:.2f}'.format(o.invoice_id.amount_tax or 0.00)"/></sum1:CuotaTotal>
-						<sum1:ImporteTotal><t t-esc="'{:.2f}'.format(o.invoice_id.amount_total or 0.00)"/></sum1:ImporteTotal>
+						<sum1:CuotaTotal><t t-esc="'{:.2f}'.format(o.invoice_id.amount_tax  * (1 if o.type == 'out_invoice' else -1))"/></sum1:CuotaTotal>
+						<sum1:ImporteTotal><t t-esc="'{:.2f}'.format(o.invoice_id.amount_total  * (1 if o.type == 'out_invoice' else -1))"/></sum1:ImporteTotal>
 						<sum1:Encadenamiento>
 							<t t-if="o.anterior">
 							<sum1:RegistroAnterior>
-								<sum1:IDEmisorFactura><t t-esc="o.anterior.invoice_id.partner_id.vat_clean()[1]"/></sum1:IDEmisorFactura>
-								<sum1:NumSerieFactura><t t-esc="o.anterior.invoice_id.number"/></sum1:NumSerieFactura>
+								<sum1:IDEmisorFactura><t t-esc="o.anterior.invoice_id.company_id.partner_id.vat_clean()[1]"/></sum1:IDEmisorFactura>
+								<sum1:NumSerieFactura><t t-esc="o.anterior.invoice_id.move_name"/></sum1:NumSerieFactura>
 								<sum1:FechaExpedicionFactura><t t-esc="o.anterior.date_invoice"/></sum1:FechaExpedicionFactura>
 								<sum1:Huella><t t-esc="o.anterior.hash"/></sum1:Huella>
 							</sum1:RegistroAnterior>
@@ -107,7 +110,7 @@ xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
 					<sum1:IDVersion>1.0</sum1:IDVersion>
 					<sum1:IDFactura>
 						<sum1:IDEmisorFacturaAnulada><t t-esc="o.invoice_id.company_id.partner_id.vat_clean()[1]"/></sum1:IDEmisorFacturaAnulada>
-						<sum1:NumSerieFacturaAnulada><t t-esc="o.invoice_id.number"/></sum1:NumSerieFacturaAnulada>
+						<sum1:NumSerieFacturaAnulada><t t-esc="o.invoice_id.move_name"/></sum1:NumSerieFacturaAnulada>
 						<sum1:FechaExpedicionFacturaAnulada><t t-esc="o.date_invoice"/></sum1:FechaExpedicionFacturaAnulada>
 					</sum1:IDFactura>
 					<sum1:SinRegistroPrevio><t t-esc="o.sin_registro_previo"/></sum1:SinRegistroPrevio>
@@ -115,8 +118,8 @@ xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
 					<sum1:Encadenamiento>
 						<t t-if="o.anterior">
 							<sum1:RegistroAnterior>
-								<sum1:IDEmisorFactura><t t-esc="o.anterior.invoice_id.partner_id.vat_clean()[1]"/></sum1:IDEmisorFactura>
-								<sum1:NumSerieFactura><t t-esc="o.anterior.invoice_id.number"/></sum1:NumSerieFactura>
+								<sum1:IDEmisorFactura><t t-esc="o.anterior.invoice_id.company_id.partner_id.vat_clean()[1]"/></sum1:IDEmisorFactura>
+								<sum1:NumSerieFactura><t t-esc="o.anterior.invoice_id.move_name"/></sum1:NumSerieFactura>
 								<sum1:FechaExpedicionFactura><t t-esc="o.anterior.date_invoice"/></sum1:FechaExpedicionFactura>
 								<sum1:Huella><t t-esc="o.anterior.hash"/></sum1:Huella>
 							</sum1:RegistroAnterior>
@@ -134,7 +137,7 @@ xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
 						<sum1:TipoUsoPosibleMultiOT>N</sum1:TipoUsoPosibleMultiOT>
 						<sum1:IndicadorMultiplesOT>N</sum1:IndicadorMultiplesOT>
 					</sum1:SistemaInformatico>
-					<sum1:FechaHoraHusoGenRegistro>o.generation_date"/></sum1:FechaHoraHusoGenRegistro>
+					<sum1:FechaHoraHusoGenRegistro><t t-raw="o.generation_date"/></sum1:FechaHoraHusoGenRegistro>
 					<sum1:TipoHuella>01</sum1:TipoHuella>
 					<sum1:Huella><t t-raw="o.hash"/></sum1:Huella>
 				    <t t-if="o.signature"><t t-raw="o.signature"/></t>
